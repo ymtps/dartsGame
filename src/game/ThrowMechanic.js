@@ -4,8 +4,8 @@ import { getScoreAt } from '../utils/PolarGeometry.js'
 import { BOARD_RADIUS } from '../scene/Board.js'
 import { PrecisionBar } from '../ui/PrecisionBar.js'
 
-// Max deviation radius in world units (≈ 15% of board radius)
-const MAX_DEVIATION = BOARD_RADIUS * 0.15
+// Max deviation radius in world units (≈ 25% of board radius — significant penalty for bad timing)
+const MAX_DEVIATION = BOARD_RADIUS * 0.25
 
 // Throw origin (camera position, slightly below center)
 const THROW_ORIGIN = new THREE.Vector3(0, -0.1, 3)

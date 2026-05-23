@@ -8,8 +8,8 @@
 export class PrecisionBar {
   constructor(uiRoot) {
     this.uiRoot = uiRoot
-    this._offset = 0        // current position [-1, 1]
-    this._speed = Math.PI   // radians/second → full cycle = 2s
+    this._offset = 0              // current position [-1, 1]
+    this._speed = Math.PI * 1.6   // radians/second → full cycle ≈ 1.25s (harder to time)
     this._startTime = null
     this._rafId = null
     this._visible = false
@@ -44,13 +44,13 @@ export class PrecisionBar {
       overflow: 'hidden',
     })
 
-    // Zone indicator: green center, red edges
+    // Zone indicator: tight green center, red edges (visual cue for difficulty)
     const zone = document.createElement('div')
     Object.assign(zone.style, {
       position: 'absolute',
       inset: 0,
-      background: 'linear-gradient(to right, #cc2222, #22aa22 30%, #22aa22 70%, #cc2222)',
-      opacity: '0.3',
+      background: 'linear-gradient(to right, #cc2222, #ddaa22 35%, #22aa22 47%, #22aa22 53%, #ddaa22 65%, #cc2222)',
+      opacity: '0.4',
     })
 
     // Center line
