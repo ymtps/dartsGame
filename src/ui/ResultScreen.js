@@ -34,7 +34,7 @@ export class ResultScreen {
     })
 
     const btnRow = document.createElement('div')
-    Object.assign(btnRow.style, { display: 'flex', gap: '16px', marginTop: '16px' })
+    Object.assign(btnRow.style, { display: 'flex', gap: '16px', marginTop: '16px', flexWrap: 'wrap', justifyContent: 'center' })
 
     this._replayBtn = this._buildBtn('もう一度', '#22aa22', '#1a8a1a')
     this._menuBtn = this._buildBtn('モード選択へ', '#4444cc', '#3333aa')
@@ -48,7 +48,7 @@ export class ResultScreen {
     const btn = document.createElement('button')
     btn.textContent = text
     Object.assign(btn.style, {
-      padding: '12px 32px',
+      padding: '14px 32px',
       fontSize: '1rem',
       background: bg,
       color: '#fff',
@@ -56,6 +56,7 @@ export class ResultScreen {
       borderRadius: '6px',
       cursor: 'pointer',
       fontWeight: 'bold',
+      minHeight: '48px',
     })
     btn.addEventListener('mouseover', () => { btn.style.background = bgHover })
     btn.addEventListener('mouseout', () => { btn.style.background = bg })

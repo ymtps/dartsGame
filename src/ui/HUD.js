@@ -1,5 +1,7 @@
 import { CRICKET_NUMBERS } from '../game/types.js'
 
+const MAX_CRICKET_ROUNDS = 20
+
 /**
  * HUD — in-game score display overlay.
  *
@@ -91,14 +93,16 @@ export class HUD {
       position: 'absolute',
       bottom: '12px',
       left: '12px',
-      padding: '8px 16px',
+      padding: '12px 20px',
       background: 'rgba(255,255,255,0.1)',
       color: '#fff',
       border: '1px solid rgba(255,255,255,0.3)',
       borderRadius: '4px',
       cursor: 'pointer',
-      fontSize: '0.85rem',
+      fontSize: '1rem',
       pointerEvents: 'auto',
+      minWidth: '48px',
+      minHeight: '48px',
     })
     // Stop click propagation so reset doesn't also trigger a throw
     resetBtn.addEventListener('click', (e) => {
@@ -120,6 +124,20 @@ export class HUD {
       pointerEvents: 'none',
     })
 
+    this.roundInfo = document.createElement('div')
+    Object.assign(this.roundInfo.style, {
+      position: 'absolute',
+      bottom: '70px',
+      left: '16px',
+      color: '#fff',
+      fontSize: '1.5rem',
+      fontWeight: 'bold',
+      letterSpacing: '2px',
+      textShadow: '0 1px 4px rgba(0,0,0,0.8)',
+      pointerEvents: 'none',
+      display: 'none',
+    })
+
     this.container.append(
       this.playerPanel.container,
       this.cpuPanel.container,
@@ -128,6 +146,7 @@ export class HUD {
       this.bustFlash,
       resetBtn,
       this.cricketTable,
+      this.roundInfo,
     )
     this.uiRoot.append(this.container)
   }
@@ -142,7 +161,8 @@ export class HUD {
       background: 'rgba(0,0,0,0.6)',
       borderRadius: '6px',
       color: '#fff',
-      minWidth: '120px',
+      minWidth: '130px',
+      maxWidth: '45vw',
       pointerEvents: 'none',
     })
 
@@ -152,10 +172,31 @@ export class HUD {
 
     const score = document.createElement('div')
     score.textContent = '0'
-    Object.assign(score.style, { fontSize: '2rem', fontWeight: 'bold' })
+    Object.assign(score.style, { fontSize: '2rem', fontWeight: 'bold', marginBottom: '6px' })
 
-    container.append(label, score)
-    return { container, score }
+    const history = document.createElement('div')
+    Object.assign(history.style, {
+      fontSize: '0.7rem',
+      opacity: '0.8',
+      lineHeight: '1.7',
+      fontFamily: 'monospace',
+      borderTop: '1px solid rgba(255,255,255,0.15)',
+      paddingTop: '6px',
+      display: 'none',
+    })
+
+    container.append(label, score, history)
+    return { container, score, history }
+  }
+
+  _renderHistory(el, history) {
+    if (!history.length) { el.style.display = 'none'; return }
+    el.style.display = 'block'
+    el.innerHTML = history.slice(0, 5).map(entry => {
+      const labels = entry.labels.join('/')
+      if (entry.bust) return `<div style="opacity:0.45">${labels} BUST</div>`
+      return `<div>${labels}→${entry.total}</div>`
+    }).join('')
   }
 
   show(mode, onReset) {
@@ -173,7 +214,7 @@ export class HUD {
    * @param {import('../game/types.js').GameData} data
    */
   update(data) {
-    const { mode, currentTurn, dartsThrown, dartScores = [], playerScore, cpuScore, cricketState } = data
+    const { mode, currentTurn, dartsThrown, roundsPlayed = 0, dartScores = [], playerScore, cpuScore, cricketState } = data
 
     // Turn indicator
     this.turnLabel.textContent = currentTurn === 'player' ? 'あなたのターン' : 'CPU のターン'
@@ -209,6 +250,21 @@ export class HUD {
       this.playerPanel.score.textContent = String(playerScore)
       this.cpuPanel.score.textContent = String(cpuScore)
     }
+
+    // Round counter (cricket only)
+    if (mode === 'cricket') {
+      const current = currentTurn === 'player' ? roundsPlayed + 1 : roundsPlayed
+      const remaining = Math.max(0, MAX_CRICKET_ROUNDS - current)
+      this.roundInfo.textContent = `ROUND ${current} / ${MAX_CRICKET_ROUNDS}  残り ${remaining}`
+      this.roundInfo.style.display = 'block'
+    } else {
+      this.roundInfo.style.display = 'none'
+    }
+
+    // Turn history
+    const { playerHistory, cpuHistory } = data
+    if (playerHistory) this._renderHistory(this.playerPanel.history, playerHistory)
+    if (cpuHistory) this._renderHistory(this.cpuPanel.history, cpuHistory)
   }
 
   _updateCricketTable(cricketState) {

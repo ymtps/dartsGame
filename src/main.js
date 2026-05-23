@@ -56,6 +56,8 @@ function startNewGame(mode, difficulty) {
 
   cpu = new CPU(difficulty)
 
+  playerHistory = []
+  cpuHistory = []
   gameState.startGame({ mode, difficulty })
   modeEngine.beginTurn?.('player')
 
@@ -78,6 +80,24 @@ function buildScoreLabel(scoreInfo) {
 }
 
 let currentTurnDartScores = []
+let playerHistory = []
+let cpuHistory = []
+
+function recordPlayerTurn(bust = false) {
+  playerHistory.unshift({
+    labels: currentTurnDartScores.map(d => d.label),
+    total: bust ? null : currentTurnDartScores.reduce((s, d) => s + d.points, 0),
+    bust,
+  })
+}
+
+function recordCpuTurn(scores, bust = false) {
+  cpuHistory.unshift({
+    labels: scores.map(d => d.label),
+    total: bust ? null : scores.reduce((s, d) => s + d.points, 0),
+    bust,
+  })
+}
 
 function updateHud(dartScores) {
   const baseState = modeEngine.getState()
@@ -85,15 +105,19 @@ function updateHud(dartScores) {
     mode: lastSettings.mode,
     currentTurn: gameState.currentTurn,
     dartsThrown: gameState.dartsThrown,
+    roundsPlayed: gameState.roundsPlayed,
     dartScores,
     playerScore: baseState.playerScore,
     cpuScore: baseState.cpuScore,
     cricketState: baseState.cricketState ?? null,
+    playerHistory,
+    cpuHistory,
   })
 }
 
 /** Transition to CPU turn with indicator */
 function handoffToCpu() {
+  throwMechanic.endTurn()
   currentTurnDartScores = []
   dartMesh.clearDarts()
   modeEngine.beginTurn?.('cpu')
@@ -123,6 +147,7 @@ function onPlayerLanded(scoreInfo, dartsThrown) {
     updateHud(currentTurnDartScores)
     hud.showBust(() => {
       gameState.onLanded({ endTurn: true })  // immediately to CPU
+      recordPlayerTurn(true)
       handoffToCpu()
     })
     return
@@ -140,6 +165,7 @@ function onPlayerLanded(scoreInfo, dartsThrown) {
 
   if (gameState.current === STATE.CPU_THINKING) {
     // Turn complete — hand off to CPU
+    recordPlayerTurn()
     handoffToCpu()
   } else {
     // Next dart in same turn — restart bar
@@ -171,6 +197,7 @@ function runCpuTurn() {
           updateHud(cpuDartScores)
           hud.showBust(() => {
             cpu.cancel()  // skip remaining throws
+            recordCpuTurn(cpuDartScores, true)
             cpuDartScores = []
             gameState.onCpuLanded({ endTurn: true })
             handoffToPlayer()
@@ -192,6 +219,7 @@ function runCpuTurn() {
     onAllDone: () => {
       if (gameState.current === STATE.PLAYER_TURN) {
         // CPU turn ended naturally — back to player
+        recordCpuTurn(cpuDartScores)
         handoffToPlayer()
       }
     },

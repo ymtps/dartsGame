@@ -24,7 +24,7 @@ export class PrecisionBar {
       bottom: '48px',
       left: '50%',
       transform: 'translateX(-50%)',
-      width: '320px',
+      width: 'min(320px, 88vw)',
       height: '48px',
       background: 'rgba(0,0,0,0.7)',
       border: '2px solid rgba(255,255,255,0.3)',

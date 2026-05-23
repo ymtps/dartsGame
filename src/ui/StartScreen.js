@@ -84,7 +84,7 @@ export class StartScreen {
     Object.assign(label.style, { fontSize: '0.9rem', opacity: '0.7', letterSpacing: '2px' })
 
     const btnRow = document.createElement('div')
-    Object.assign(btnRow.style, { display: 'flex', gap: '12px' })
+    Object.assign(btnRow.style, { display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' })
 
     const defaultValue = key === 'mode' ? '501' : 'medium'
     const buttons = []
@@ -96,8 +96,9 @@ export class StartScreen {
       const isDefault = opt.value === defaultValue
 
       Object.assign(btn.style, {
-        padding: '10px 20px',
+        padding: '12px 24px',
         fontSize: '1rem',
+        minHeight: '48px',
         background: isDefault ? '#4444cc' : 'rgba(255,255,255,0.15)',
         color: '#fff',
         border: `2px solid ${isDefault ? '#6666ff' : 'rgba(255,255,255,0.3)'}`,

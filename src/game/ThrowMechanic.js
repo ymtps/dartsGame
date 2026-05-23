@@ -64,6 +64,20 @@ export class ThrowMechanic {
     const canvas = this.sceneManager.renderer.domElement
     canvas.addEventListener('mousemove', (e) => this._onMouseMove(e))
     document.addEventListener('click', () => this._onDocumentClick())
+
+    // Touch support — passive: false allows preventDefault to block scroll/zoom
+    canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault()
+      if (e.touches[0]) this._onMouseMove(e.touches[0])
+    }, { passive: false })
+    canvas.addEventListener('touchmove', (e) => {
+      e.preventDefault()
+      if (e.touches[0]) this._onMouseMove(e.touches[0])
+    }, { passive: false })
+    canvas.addEventListener('touchend', (e) => {
+      e.preventDefault()
+      this._onDocumentClick()
+    }, { passive: false })
   }
 
   _onMouseMove(e) {

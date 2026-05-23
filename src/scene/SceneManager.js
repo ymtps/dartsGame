@@ -60,6 +60,7 @@ export class SceneManager {
       const h = window.innerHeight
       this.camera.aspect = w / h
       this.camera.updateProjectionMatrix()
+      this.renderer.setPixelRatio(window.devicePixelRatio)
       this.renderer.setSize(w, h)
     })
   }
