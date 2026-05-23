@@ -89,7 +89,7 @@ export class HUD {
     resetBtn.textContent = '⟳ リセット'
     Object.assign(resetBtn.style, {
       position: 'absolute',
-      top: '12px',
+      bottom: '12px',
       right: '12px',
       padding: '8px 16px',
       background: 'rgba(255,255,255,0.1)',
@@ -100,7 +100,11 @@ export class HUD {
       fontSize: '0.85rem',
       pointerEvents: 'auto',
     })
-    resetBtn.addEventListener('click', () => this._onReset?.())
+    // Stop click propagation so reset doesn't also trigger a throw
+    resetBtn.addEventListener('click', (e) => {
+      e.stopPropagation()
+      this._onReset?.()
+    })
 
     // Cricket state table
     this.cricketTable = document.createElement('div')
