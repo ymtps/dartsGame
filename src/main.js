@@ -10,7 +10,7 @@ import { CPU } from './game/CPU.js'
 import { StartScreen } from './ui/StartScreen.js'
 import { ResultScreen } from './ui/ResultScreen.js'
 import { HUD } from './ui/HUD.js'
-import { applyDeviation, computeArc } from './game/Ballistics.js'
+import { TurnIndicator } from './ui/TurnIndicator.js'
 import { getScoreAt } from './utils/PolarGeometry.js'
 
 const canvas = document.getElementById('game-canvas')
@@ -27,6 +27,7 @@ sceneManager.start()
 const startScreen = new StartScreen(uiRoot)
 const resultScreen = new ResultScreen(uiRoot)
 const hud = new HUD(uiRoot)
+const turnIndicator = new TurnIndicator(uiRoot)
 const throwMechanic = new ThrowMechanic(sceneManager, dartMesh, uiRoot)
 
 // Game state and engines
@@ -54,7 +55,11 @@ function startNewGame(mode, difficulty) {
 
   hud.show(mode, () => gameState.requestReset())
   updateHud([])
-  throwMechanic.startTurn(onPlayerLanded)
+
+  // Show "あなたのターン" before the first turn begins
+  turnIndicator.show('player', () => {
+    throwMechanic.startTurn(onPlayerLanded)
+  })
 }
 
 function buildScoreLabel(scoreInfo) {
@@ -81,6 +86,23 @@ function updateHud(dartScores) {
   })
 }
 
+/** Transition to CPU turn with indicator */
+function handoffToCpu() {
+  currentTurnDartScores = []
+  dartMesh.clearDarts()
+  modeEngine.beginTurn?.('cpu')
+  updateHud([])
+  turnIndicator.show('cpu', () => runCpuTurn())
+}
+
+/** Transition to player turn with indicator */
+function handoffToPlayer() {
+  dartMesh.clearDarts()
+  modeEngine.beginTurn?.('player')
+  updateHud([])
+  turnIndicator.show('player', () => throwMechanic.startTurn(onPlayerLanded))
+}
+
 // --- Player turn handling ---
 function onPlayerLanded(scoreInfo, dartsThrown) {
   gameState.onThrow()  // PLAYER_TURN → DART_FLYING (state for the throw)
@@ -93,11 +115,8 @@ function onPlayerLanded(scoreInfo, dartsThrown) {
     // Bust — clear darts, flash BUST, end turn
     updateHud(currentTurnDartScores)
     hud.showBust(() => {
-      currentTurnDartScores = []
-      dartMesh.clearDarts()
       gameState.onLanded({ endTurn: true })  // immediately to CPU
-      modeEngine.beginTurn?.('cpu')
-      runCpuTurn()
+      handoffToCpu()
     })
     return
   }
@@ -114,10 +133,7 @@ function onPlayerLanded(scoreInfo, dartsThrown) {
 
   if (gameState.current === STATE.CPU_THINKING) {
     // Turn complete — hand off to CPU
-    currentTurnDartScores = []
-    dartMesh.clearDarts()
-    modeEngine.beginTurn?.('cpu')
-    runCpuTurn()
+    handoffToCpu()
   } else {
     // Next dart in same turn — restart bar
     throwMechanic.resumeBar()
@@ -146,13 +162,10 @@ function runCpuTurn() {
         if (result.bust) {
           updateHud(cpuDartScores)
           hud.showBust(() => {
-            dartMesh.clearDarts()
-            cpuDartScores = []
             cpu.cancel()  // skip remaining throws
+            cpuDartScores = []
             gameState.onCpuLanded({ endTurn: true })
-            modeEngine.beginTurn?.('player')
-            throwMechanic.startTurn(onPlayerLanded)
-            updateHud([])
+            handoffToPlayer()
           })
           return
         }
@@ -171,10 +184,7 @@ function runCpuTurn() {
     onAllDone: () => {
       if (gameState.current === STATE.PLAYER_TURN) {
         // CPU turn ended naturally — back to player
-        dartMesh.clearDarts()
-        modeEngine.beginTurn?.('player')
-        throwMechanic.startTurn(onPlayerLanded)
-        updateHud([])
+        handoffToPlayer()
       }
     },
   })
@@ -182,6 +192,7 @@ function runCpuTurn() {
 
 function finishGame(winner) {
   cpu?.cancel()
+  turnIndicator.cancel()
   throwMechanic.endTurn()
   hud.hide()
   const state = modeEngine.getState()
@@ -207,6 +218,7 @@ function showResetDialog() {
   // Simple confirm — quick implementation
   if (window.confirm('ゲームを中断してスタート画面に戻りますか？')) {
     cpu?.cancel()
+    turnIndicator.cancel()
     throwMechanic.endTurn()
     dartMesh.clearDarts()
     hud.hide()
