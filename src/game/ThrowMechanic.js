@@ -4,11 +4,22 @@ import { getScoreAt } from '../utils/PolarGeometry.js'
 import { BOARD_RADIUS } from '../scene/Board.js'
 import { PrecisionBar } from '../ui/PrecisionBar.js'
 
-// Max deviation radius in world units (≈ 25% of board radius — significant penalty for bad timing)
+// Max deviation radius applied by the precision bar (≈ 25% of board radius)
 const MAX_DEVIATION = BOARD_RADIUS * 0.25
 
-// Throw origin (camera position, slightly below center)
+// Aim sway parameters — reticle drifts around mouse position in a Lissajous-like pattern
+const SWAY_AMPLITUDE = BOARD_RADIUS * 0.07   // ≈7% of board radius
+const SWAY_FREQ_X = 1.7                       // radians/second
+const SWAY_FREQ_Y = 2.3                       // different frequency so pattern doesn't repeat trivially
+
+// Throw origin (camera area)
 const THROW_ORIGIN = new THREE.Vector3(0, -0.1, 3)
+
+// Phase enum
+const PHASE = Object.freeze({
+  AIMING:    'aiming',     // reticle drifts; first click locks aim
+  PRECISION: 'precision',  // precision bar active; click throws
+})
 
 export class ThrowMechanic {
   constructor(sceneManager, dartMesh, uiRoot) {
@@ -17,21 +28,33 @@ export class ThrowMechanic {
     this.raycaster = new THREE.Raycaster()
     this.pointer = new THREE.Vector2()
 
-    this.aimPoint = null        // current board-surface aim point (Three.js Vector3)
-    this.dartsThrown = 0        // 0-3 per turn
-    this._active = false        // is it the player's turn?
+    this.baseAim = null         // mouse-projected aim (without sway)
+    this.swayedAim = null       // baseAim + sway offset (what will actually be thrown)
+    this.lockedAim = null       // captured after first click
+    this.dartsThrown = 0
+    this._active = false
+    this._phase = PHASE.AIMING
     this._onThrowComplete = null
 
     this.precisionBar = new PrecisionBar(uiRoot)
-    this._reticle = this._buildReticle()
-    sceneManager.scene.add(this._reticle)
+    this._swayReticle = this._buildReticle(0xffffff, 0.025, 0.034, 0.7)  // moving aim
+    this._lockReticle = this._buildReticle(0xff4444, 0.018, 0.025, 0.95) // locked target marker
+    sceneManager.scene.add(this._swayReticle, this._lockReticle)
+
+    this._swayStart = performance.now()
+    this._removeFrameCb = sceneManager.addFrameCallback(() => this._updateSway())
 
     this._bindEvents()
   }
 
-  _buildReticle() {
-    const geo = new THREE.RingGeometry(0.02, 0.03, 32)
-    const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide, transparent: true, opacity: 0.8 })
+  _buildReticle(color, inner, outer, opacity) {
+    const geo = new THREE.RingGeometry(inner, outer, 32)
+    const mat = new THREE.MeshBasicMaterial({
+      color,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity,
+    })
     const mesh = new THREE.Mesh(geo, mat)
     mesh.visible = false
     return mesh
@@ -39,49 +62,82 @@ export class ThrowMechanic {
 
   _bindEvents() {
     const canvas = this.sceneManager.renderer.domElement
-
-    // Mousemove: update aim reticle (only reads from canvas — no pointer-events blocking)
     canvas.addEventListener('mousemove', (e) => this._onMouseMove(e))
-
-    // Click — document-level listener so it fires regardless of any overlay
-    // (PrecisionBar and HUD are pointer-events:none, so clicks always reach here)
-    document.addEventListener('click', (e) => this._onDocumentClick(e))
+    document.addEventListener('click', () => this._onDocumentClick())
   }
 
   _onMouseMove(e) {
     if (!this._active || this.dartMesh.isAnimating) return
+    if (this._phase !== PHASE.AIMING) return  // mouse ignored after aim lock
 
     const canvas = this.sceneManager.renderer.domElement
     const rect = canvas.getBoundingClientRect()
-
     this.pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1
     this.pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1
 
     this.raycaster.setFromCamera(this.pointer, this.sceneManager.camera)
-
     const boardMesh = this.sceneManager.getBoardMesh()
     if (!boardMesh) return
 
     const hits = this.raycaster.intersectObject(boardMesh)
     if (hits.length > 0) {
-      const point = hits[0].point
-      this.aimPoint = point.clone()
-      this._reticle.position.copy(point)
-      this._reticle.position.z += 0.001  // just above board surface
-      this._reticle.visible = true
+      this.baseAim = hits[0].point.clone()
     } else {
-      this.aimPoint = null
-      this._reticle.visible = false
+      this.baseAim = null
     }
   }
 
-  _onDocumentClick(e) {
-    if (!this._active || this.dartMesh.isAnimating) return
-    if (!this.aimPoint) return  // cursor not on board
+  /** Frame callback: update reticle position with sway offset */
+  _updateSway() {
+    if (!this._active || this.dartMesh.isAnimating) {
+      this._swayReticle.visible = false
+      return
+    }
 
-    // Capture current bar state and throw
+    if (this._phase === PHASE.AIMING) {
+      if (!this.baseAim) {
+        this._swayReticle.visible = false
+        this.swayedAim = null
+        return
+      }
+
+      const elapsed = (performance.now() - this._swayStart) / 1000
+      const dx = SWAY_AMPLITUDE * Math.sin(elapsed * SWAY_FREQ_X)
+      const dy = SWAY_AMPLITUDE * Math.sin(elapsed * SWAY_FREQ_Y + Math.PI / 3)
+
+      this.swayedAim = this.baseAim.clone()
+      this.swayedAim.x += dx
+      this.swayedAim.y += dy
+
+      this._swayReticle.position.copy(this.swayedAim)
+      this._swayReticle.position.z += 0.001
+      this._swayReticle.visible = true
+    } else {
+      // PRECISION phase: hide sway reticle, show locked reticle only
+      this._swayReticle.visible = false
+    }
+  }
+
+  _onDocumentClick() {
+    if (!this._active || this.dartMesh.isAnimating) return
+
+    if (this._phase === PHASE.AIMING) {
+      // First click — lock aim at current swayed position
+      if (!this.swayedAim) return  // cursor not on board
+
+      this.lockedAim = this.swayedAim.clone()
+      this._lockReticle.position.copy(this.lockedAim)
+      this._lockReticle.position.z += 0.001
+      this._lockReticle.visible = true
+
+      this._phase = PHASE.PRECISION
+      this.precisionBar.start()
+      return
+    }
+
+    // PRECISION phase — second click throws
     const offset = this.precisionBar.getOffset()
-    const landingPoint = applyDeviation(this.aimPoint, offset, MAX_DEVIATION)
+    const landingPoint = applyDeviation(this.lockedAim, offset, MAX_DEVIATION)
 
     // Clamp to board area so dart never flies completely off
     const dist = Math.sqrt(landingPoint.x ** 2 + landingPoint.y ** 2)
@@ -91,10 +147,9 @@ export class ThrowMechanic {
     }
 
     this.precisionBar.stop()
-    this._reticle.visible = false
+    this._lockReticle.visible = false
+    this._swayReticle.visible = false
 
-    // Get score from local board coordinates
-    // Board is at origin in XY plane; landingPoint is already in board-local space
     const scoreInfo = getScoreAt(landingPoint.x, landingPoint.y, BOARD_RADIUS)
 
     this.dartMesh.throwTo(THROW_ORIGIN, landingPoint, 600, () => {
@@ -104,29 +159,36 @@ export class ThrowMechanic {
   }
 
   /**
-   * Activate the player's throw turn.
-   * @param {function} onThrowComplete - (scoreInfo, dartsThrown) called after each dart lands
+   * Activate the player's throw turn — enters AIMING phase.
    */
   startTurn(onThrowComplete) {
     this._active = true
     this.dartsThrown = 0
     this._onThrowComplete = onThrowComplete
-    this.precisionBar.start()
+    this._phase = PHASE.AIMING
+    this._swayStart = performance.now()
+    this.lockedAim = null
+    this._lockReticle.visible = false
+    this.precisionBar.stop()  // bar hidden until aim is locked
   }
 
   /**
-   * Resume precision bar after a dart has landed (for subsequent throws in same turn).
+   * Reset to AIMING phase for the next dart in the same turn.
    */
   resumeBar() {
-    if (this._active) {
-      this.precisionBar.start()
-    }
+    if (!this._active) return
+    this._phase = PHASE.AIMING
+    this._swayStart = performance.now()
+    this.lockedAim = null
+    this._lockReticle.visible = false
+    this.precisionBar.stop()
   }
 
   /** Deactivate at end of player's turn */
   endTurn() {
     this._active = false
     this.precisionBar.stop()
-    this._reticle.visible = false
+    this._swayReticle.visible = false
+    this._lockReticle.visible = false
   }
 }
