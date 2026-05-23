@@ -34,6 +34,23 @@ export class SceneManager {
     this.camera = new THREE.PerspectiveCamera(60, aspect, 0.01, 50)
     this.camera.position.set(0, 0, 3)
     this.camera.lookAt(0, 0, 0)
+    this._fitCamera()
+  }
+
+  /**
+   * Adjust camera Z so the full board visual radius fits both axes.
+   * On portrait screens the horizontal FOV shrinks, so the camera pulls back.
+   * Board.js: VISUAL_RADIUS = BOARD_RADIUS(1.0) / PLAY_FIELD_FRAC(0.86) ≈ 1.163
+   */
+  _fitCamera() {
+    const aspect = window.innerWidth / window.innerHeight
+    const tanHalfFov = Math.tan(this.camera.fov * Math.PI / 360)
+    const VISUAL_RADIUS = 1.163
+    const pad = 1.15
+
+    const zForWidth  = (VISUAL_RADIUS * pad) / (tanHalfFov * aspect)
+    const zForHeight = (VISUAL_RADIUS * pad) / tanHalfFov
+    this.camera.position.z = Math.max(zForWidth, zForHeight, 3)
   }
 
   _initLights() {
@@ -62,6 +79,7 @@ export class SceneManager {
       this.camera.updateProjectionMatrix()
       this.renderer.setPixelRatio(window.devicePixelRatio)
       this.renderer.setSize(w, h)
+      this._fitCamera()
     })
   }
 

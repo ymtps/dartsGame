@@ -68,11 +68,11 @@ export class ThrowMechanic {
     // Touch support — passive: false allows preventDefault to block scroll/zoom
     canvas.addEventListener('touchstart', (e) => {
       e.preventDefault()
-      if (e.touches[0]) this._onMouseMove(e.touches[0])
+      if (e.touches[0]) this._onMouseMove(e.touches[0], true)
     }, { passive: false })
     canvas.addEventListener('touchmove', (e) => {
       e.preventDefault()
-      if (e.touches[0]) this._onMouseMove(e.touches[0])
+      if (e.touches[0]) this._onMouseMove(e.touches[0], true)
     }, { passive: false })
     canvas.addEventListener('touchend', (e) => {
       e.preventDefault()
@@ -80,14 +80,18 @@ export class ThrowMechanic {
     }, { passive: false })
   }
 
-  _onMouseMove(e) {
+  // Pixels to shift the reticle above the fingertip on touch input
+  static TOUCH_OFFSET_PX = 80
+
+  _onMouseMove(e, isTouch = false) {
     if (!this._active || this.dartMesh.isAnimating) return
     if (this._phase !== PHASE.AIMING) return  // mouse ignored after aim lock
 
     const canvas = this.sceneManager.renderer.domElement
     const rect = canvas.getBoundingClientRect()
+    const touchOffsetNDC = isTouch ? (ThrowMechanic.TOUCH_OFFSET_PX / rect.height) * 2 : 0
     this.pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1
-    this.pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1
+    this.pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1 + touchOffsetNDC
 
     this.raycaster.setFromCamera(this.pointer, this.sceneManager.camera)
     const boardMesh = this.sceneManager.getBoardMesh()
