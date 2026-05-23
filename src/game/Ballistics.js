@@ -24,10 +24,10 @@ export function computeArc(from, to, options = {}) {
 
 /**
  * Apply deviation to an aim point based on precision bar offset.
- * Uses a square-root curve so even small offsets cause significant deviation:
- *   offset 0.1 → ~32% of max deviation (not 10%)
- *   offset 0.2 → ~45% of max deviation (not 20%)
- *   offset 0.5 → ~71% of max deviation (not 50%)
+ * Uses a power curve (exponent 0.6) — moderate punishment for off-center clicks:
+ *   offset 0.1 → ~25% of max deviation
+ *   offset 0.2 → ~38% of max deviation
+ *   offset 0.5 → ~66% of max deviation
  *
  * @param {THREE.Vector3} aimPoint - board-surface aim position
  * @param {number} barOffset - precision bar position [-1, 1]; 0 = center (perfect)
@@ -36,7 +36,7 @@ export function computeArc(from, to, options = {}) {
  * @returns {THREE.Vector3} deviated landing point
  */
 export function applyDeviation(aimPoint, barOffset, maxDeviation, rng = Math.random) {
-  const magnitude = Math.sqrt(Math.abs(barOffset)) * maxDeviation
+  const magnitude = Math.pow(Math.abs(barOffset), 0.6) * maxDeviation
   const angle = rng() * Math.PI * 2
 
   const deviated = aimPoint.clone()
