@@ -5,12 +5,12 @@ import { BOARD_RADIUS } from '../scene/Board.js'
 import { PrecisionBar } from '../ui/PrecisionBar.js'
 
 // Max deviation radius applied by the precision bar (≈ 25% of board radius)
-const MAX_DEVIATION = BOARD_RADIUS * 0.25
+const MAX_DEVIATION = BOARD_RADIUS * 0.32
 
 // Aim sway parameters — reticle drifts around mouse position in a Lissajous-like pattern
-const SWAY_AMPLITUDE = BOARD_RADIUS * 0.07   // ≈7% of board radius
-const SWAY_FREQ_X = 1.7                       // radians/second
-const SWAY_FREQ_Y = 2.3                       // different frequency so pattern doesn't repeat trivially
+const SWAY_AMPLITUDE = BOARD_RADIUS * 0.10   // ≈10% of board radius
+const SWAY_FREQ_X = 2.5                       // radians/second
+const SWAY_FREQ_Y = 3.4                       // different frequency so pattern doesn't repeat trivially
 
 // Throw origin (camera area)
 const THROW_ORIGIN = new THREE.Vector3(0, -0.1, 3)

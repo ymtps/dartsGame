@@ -6,8 +6,9 @@ const HOLD_MS = 1000
 const FADE_MS = 250
 
 export class TurnIndicator {
-  constructor(uiRoot) {
+  constructor(uiRoot, soundManager = null) {
     this.uiRoot = uiRoot
+    this.sound = soundManager
     this._activeTimers = []
     this._build()
   }
@@ -52,6 +53,9 @@ export class TurnIndicator {
 
     this.container.style.display = 'block'
     this.container.style.opacity = '0'
+
+    // Play chime alongside the visual
+    this.sound?.playTurnChange()
 
     // Fade in (use a microtask so the browser registers the initial opacity:0)
     requestAnimationFrame(() => {

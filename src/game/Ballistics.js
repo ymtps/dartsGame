@@ -37,11 +37,9 @@ export function computeArc(from, to, options = {}) {
  */
 export function applyDeviation(aimPoint, barOffset, maxDeviation, rng = Math.random) {
   const magnitude = Math.pow(Math.abs(barOffset), 0.6) * maxDeviation
-  const angle = rng() * Math.PI * 2
 
   const deviated = aimPoint.clone()
-  deviated.x += magnitude * Math.cos(angle)
-  deviated.y += magnitude * Math.sin(angle)
-  // Z stays the same (board surface)
+  deviated.x += magnitude * Math.sign(barOffset) * 1.5   // bar right → right, bar left → left
+  deviated.y += magnitude * (rng() * 2 - 1) * 0.8        // random vertical scatter
   return deviated
 }

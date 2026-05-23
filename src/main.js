@@ -11,6 +11,8 @@ import { StartScreen } from './ui/StartScreen.js'
 import { ResultScreen } from './ui/ResultScreen.js'
 import { HUD } from './ui/HUD.js'
 import { TurnIndicator } from './ui/TurnIndicator.js'
+import { SoundToggle } from './ui/SoundToggle.js'
+import { SoundManager } from './audio/SoundManager.js'
 import { getScoreAt } from './utils/PolarGeometry.js'
 
 const canvas = document.getElementById('game-canvas')
@@ -23,11 +25,15 @@ sceneManager.setBoardMesh(board.getMesh())
 const dartMesh = new DartMesh(sceneManager.scene, sceneManager)
 sceneManager.start()
 
+// Audio
+const sound = new SoundManager()
+
 // Build UI
 const startScreen = new StartScreen(uiRoot)
 const resultScreen = new ResultScreen(uiRoot)
 const hud = new HUD(uiRoot)
-const turnIndicator = new TurnIndicator(uiRoot)
+const turnIndicator = new TurnIndicator(uiRoot, sound)
+const soundToggle = new SoundToggle(uiRoot, sound)
 const throwMechanic = new ThrowMechanic(sceneManager, dartMesh, uiRoot)
 
 // Game state and engines
@@ -105,6 +111,7 @@ function handoffToPlayer() {
 
 // --- Player turn handling ---
 function onPlayerLanded(scoreInfo, dartsThrown) {
+  sound.playDartHit()
   gameState.onThrow()  // PLAYER_TURN → DART_FLYING (state for the throw)
 
   // Apply scoring
@@ -155,6 +162,7 @@ function runCpuTurn() {
 
       // Animate the CPU dart
       dartMesh.throwTo(throwOrigin, landingPoint, 600, () => {
+        sound.playDartHit()
         const scoreInfo = getScoreAt(landingPoint.x, landingPoint.y, BOARD_RADIUS)
         const result = modeEngine.applyThrow('cpu', scoreInfo)
         cpuDartScores.push({ points: scoreInfo.points, label: buildScoreLabel(scoreInfo) })

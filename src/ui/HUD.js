@@ -90,7 +90,7 @@ export class HUD {
     Object.assign(resetBtn.style, {
       position: 'absolute',
       bottom: '12px',
-      right: '12px',
+      left: '12px',
       padding: '8px 16px',
       background: 'rgba(255,255,255,0.1)',
       color: '#fff',

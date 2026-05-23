@@ -9,7 +9,7 @@ export class PrecisionBar {
   constructor(uiRoot) {
     this.uiRoot = uiRoot
     this._offset = 0              // current position [-1, 1]
-    this._speed = Math.PI * 1.6   // radians/second → full cycle ≈ 1.25s (harder to time)
+    this._speed = Math.PI * 2.0   // radians/second → full cycle ≈ 1.0s
     this._startTime = null
     this._rafId = null
     this._visible = false
