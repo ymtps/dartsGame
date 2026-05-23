@@ -12,6 +12,7 @@ export class PrecisionBar {
     this._speed = Math.PI * 2.0   // radians/second → full cycle ≈ 1.0s
     this._startTime = null
     this._rafId = null
+    this._freezeTimer = null
     this._visible = false
 
     this._build()
@@ -114,6 +115,25 @@ export class PrecisionBar {
       cancelAnimationFrame(this._rafId)
       this._rafId = null
     }
+    if (this._freezeTimer !== null) {
+      clearTimeout(this._freezeTimer)
+      this._freezeTimer = null
+    }
+  }
+
+  /**
+   * Freeze the bar at its current position and hide after a delay.
+   * Used after throwing so the player can see where they clicked.
+   */
+  freeze(duration = 700) {
+    if (this._rafId !== null) {
+      cancelAnimationFrame(this._rafId)
+      this._rafId = null
+    }
+    this._freezeTimer = setTimeout(() => {
+      this._freezeTimer = null
+      this.stop()
+    }, duration)
   }
 
   _animate() {

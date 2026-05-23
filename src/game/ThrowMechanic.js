@@ -164,7 +164,7 @@ export class ThrowMechanic {
       landingPoint.y *= (BOARD_RADIUS * 1.05) / dist
     }
 
-    this.precisionBar.stop()
+    this.precisionBar.freeze()
     this._lockReticle.visible = false
     this._swayReticle.visible = false
 
