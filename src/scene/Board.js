@@ -1,15 +1,21 @@
 import * as THREE from 'three'
 import { SECTOR_NUMBERS } from '../utils/PolarGeometry.js'
 
-export const BOARD_RADIUS = 1.0  // Three.js world units — exported for ThrowMechanic
+export const BOARD_RADIUS = 1.0  // playing field radius (used for hit detection)
+
+// Visual mesh is slightly larger than the playing field so that
+// the surrounding number ring fits inside the texture.
+const PLAY_FIELD_FRAC = 0.86           // playing field occupies inner 86% of texture
+const VISUAL_RADIUS = BOARD_RADIUS / PLAY_FIELD_FRAC  // ≈ 1.163
 
 /** Pixel radius in the canvas texture */
 const TEX_SIZE = 1024
 const CX = TEX_SIZE / 2
 const CY = TEX_SIZE / 2
-const TEX_R = TEX_SIZE / 2 - 4  // leave tiny padding
+const TEX_R = TEX_SIZE / 2 - 4  // texture full radius (visual mesh edge)
+const PLAY_R = TEX_R * PLAY_FIELD_FRAC  // playing field outer radius in pixels
 
-// Ring boundaries as fraction of TEX_R
+// Playing-field ring boundaries (fraction of PLAY_R — match PolarGeometry RING constants)
 const FRAC = {
   DOUBLE_BULL: 0.0374,
   SINGLE_BULL: 0.0935,
@@ -28,8 +34,9 @@ const COLORS = {
   bullGreen: '#1a7a2a',
   bullRed: '#cc2222',
   wire: '#888888',
-  numberText: '#f5f0d8',
-  background: '#111111',
+  numberRing: '#000000',
+  numberText: '#ffffff',
+  background: '#0a0a0a',
 }
 
 function drawSectors(ctx, innerR, outerR, colorA, colorB) {
@@ -57,16 +64,22 @@ function buildBoardTexture() {
   canvas.height = TEX_SIZE
   const ctx = canvas.getContext('2d')
 
-  const r = (frac) => frac * TEX_R
+  const r = (frac) => frac * PLAY_R  // map FRAC values to pixels in playing field
 
   // Background
   ctx.fillStyle = COLORS.background
   ctx.fillRect(0, 0, TEX_SIZE, TEX_SIZE)
 
-  // Outer circle clip
-  ctx.save()
+  // Outer black ring (where numbers will be drawn)
   ctx.beginPath()
   ctx.arc(CX, CY, TEX_R, 0, Math.PI * 2)
+  ctx.fillStyle = COLORS.numberRing
+  ctx.fill()
+
+  // Playing field — clip to playing field circle
+  ctx.save()
+  ctx.beginPath()
+  ctx.arc(CX, CY, PLAY_R, 0, Math.PI * 2)
   ctx.clip()
 
   // Double ring
@@ -95,19 +108,25 @@ function buildBoardTexture() {
 
   ctx.restore()
 
-  // Wire outline
-  ctx.beginPath()
-  ctx.arc(CX, CY, TEX_R, 0, Math.PI * 2)
+  // Wire outlines
   ctx.strokeStyle = COLORS.wire
   ctx.lineWidth = 3
+  ctx.beginPath()
+  ctx.arc(CX, CY, PLAY_R, 0, Math.PI * 2)
+  ctx.stroke()
+  ctx.beginPath()
+  ctx.arc(CX, CY, TEX_R, 0, Math.PI * 2)
   ctx.stroke()
 
-  // Number labels
-  const labelR = TEX_R * 1.06
+  // Number labels — placed in the outer black ring, between PLAY_R and TEX_R
+  const labelR = (PLAY_R + TEX_R) / 2  // midpoint of number ring
   const sectorAngle = (2 * Math.PI) / 20
   const startOffset = -Math.PI / 2  // top
 
-  ctx.font = `bold ${Math.round(TEX_R * 0.09)}px Arial`
+  // Font size scaled to ring thickness
+  const ringWidth = TEX_R - PLAY_R
+  const fontSize = Math.round(ringWidth * 0.75)
+  ctx.font = `bold ${fontSize}px Arial, sans-serif`
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
 
@@ -133,8 +152,11 @@ export class Board {
   _buildMesh() {
     const texture = buildBoardTexture()
     texture.colorSpace = THREE.SRGBColorSpace
+    texture.anisotropy = 8
 
-    const geometry = new THREE.CircleGeometry(BOARD_RADIUS, 64)
+    // Visual mesh is slightly larger than the playing field (VISUAL_RADIUS)
+    // so the outer number ring is visible. Hit detection still uses BOARD_RADIUS.
+    const geometry = new THREE.CircleGeometry(VISUAL_RADIUS, 64)
     const material = new THREE.MeshLambertMaterial({ map: texture })
 
     this.mesh = new THREE.Mesh(geometry, material)
@@ -147,7 +169,7 @@ export class Board {
   _buildSurround() {
     // Wooden backing circle behind the board
     const surround = new THREE.Mesh(
-      new THREE.CircleGeometry(BOARD_RADIUS * 1.18, 64),
+      new THREE.CircleGeometry(VISUAL_RADIUS * 1.08, 64),
       new THREE.MeshLambertMaterial({ color: 0x5c3a1e })
     )
     surround.position.set(0, 0, -0.01)
