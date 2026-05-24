@@ -41,10 +41,13 @@ const gameState = new GameState()
 let modeEngine = null
 let cpu = null
 let lastSettings = null
+let pendingTurnHandoff = null
 
 const throwOrigin = new THREE.Vector3(0, -0.1, 3)
+const TURN_END_DART_CLEAR_DELAY_MS = 1200
 
 function startNewGame(mode, difficulty) {
+  clearPendingTurnHandoff()
   lastSettings = { mode, difficulty }
 
   // Construct engine
@@ -97,6 +100,20 @@ function recordCpuTurn(scores, bust = false) {
     total: bust ? null : scores.reduce((s, d) => s + d.points, 0),
     bust,
   })
+}
+
+function clearPendingTurnHandoff() {
+  if (!pendingTurnHandoff) return
+  clearTimeout(pendingTurnHandoff)
+  pendingTurnHandoff = null
+}
+
+function delayTurnHandoff(callback) {
+  clearPendingTurnHandoff()
+  pendingTurnHandoff = setTimeout(() => {
+    pendingTurnHandoff = null
+    callback()
+  }, TURN_END_DART_CLEAR_DELAY_MS)
 }
 
 function updateHud(dartScores) {
@@ -166,7 +183,8 @@ function onPlayerLanded(scoreInfo, dartsThrown) {
   if (gameState.current === STATE.CPU_THINKING) {
     // Turn complete — hand off to CPU
     recordPlayerTurn()
-    handoffToCpu()
+    throwMechanic.endTurn()
+    delayTurnHandoff(() => handoffToCpu())
   } else {
     // Next dart in same turn — restart bar
     throwMechanic.resumeBar()
@@ -220,13 +238,14 @@ function runCpuTurn() {
       if (gameState.current === STATE.PLAYER_TURN) {
         // CPU turn ended naturally — back to player
         recordCpuTurn(cpuDartScores)
-        handoffToPlayer()
+        delayTurnHandoff(() => handoffToPlayer())
       }
     },
   })
 }
 
 function finishGame(winner) {
+  clearPendingTurnHandoff()
   cpu?.cancel()
   turnIndicator.cancel()
   throwMechanic.endTurn()
@@ -253,6 +272,7 @@ function finishGame(winner) {
 function showResetDialog() {
   // Simple confirm — quick implementation
   if (window.confirm('ゲームを中断してスタート画面に戻りますか？')) {
+    clearPendingTurnHandoff()
     cpu?.cancel()
     turnIndicator.cancel()
     throwMechanic.endTurn()
